@@ -1,65 +1,113 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+
+interface Coffee {
+  id: number;
+  name: string;
+  roaster?: string;
+  origin?: string;
+  process?: string;
+  roast_level?: string;
+  date_bought?: string;
+  log_count: number;
+  avg_rating?: number;
+}
+
+function StarRating({ value }: { value: number }) {
+  const rounded = Math.round(value * 2) / 2;
+  return (
+    <span className="text-amber-400 text-sm" title={`${value.toFixed(1)}/10`}>
+      {"★".repeat(Math.floor(rounded / 2))}
+      {rounded % 2 ? "½" : ""}
+      {"☆".repeat(5 - Math.ceil(rounded / 2))}
+      <span className="text-stone-400 ml-1 text-xs">{value.toFixed(1)}</span>
+    </span>
+  );
+}
 
 export default function Home() {
+  const [coffees, setCoffees] = useState<Coffee[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/coffees")
+      .then((r) => r.json())
+      .then((data) => {
+        setCoffees(data);
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) {
+    return <div className="text-stone-400 text-center py-16">Loading…</div>;
+  }
+
+  if (coffees.length === 0) {
+    return (
+      <div className="text-center py-24">
+        <p className="text-4xl mb-4">☕</p>
+        <p className="text-stone-500 mb-6">No coffees yet. Add your first one!</p>
+        <Link
+          href="/coffees/new"
+          className="bg-stone-900 text-white px-6 py-3 rounded-lg font-medium hover:bg-stone-700 transition-colors"
+        >
+          + Add Coffee
+        </Link>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">My Coffees</h1>
+        <span className="text-stone-400 text-sm">{coffees.length} coffee{coffees.length !== 1 ? "s" : ""}</span>
+      </div>
+
+      <div className="grid gap-4">
+        {coffees.map((c) => (
+          <Link
+            key={c.id}
+            href={`/coffees/${c.id}`}
+            className="bg-white border border-stone-200 rounded-xl p-5 hover:border-stone-400 hover:shadow-sm transition-all block"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <h2 className="font-semibold text-lg leading-tight truncate">{c.name}</h2>
+                {c.roaster && (
+                  <p className="text-stone-500 text-sm mt-0.5">{c.roaster}</p>
+                )}
+              </div>
+              {c.avg_rating != null && <StarRating value={c.avg_rating} />}
+            </div>
+
+            <div className="flex flex-wrap gap-2 mt-3">
+              {c.origin && (
+                <span className="bg-stone-100 text-stone-600 text-xs px-2 py-0.5 rounded-full">
+                  {c.origin}
+                </span>
+              )}
+              {c.process && (
+                <span className="bg-amber-50 text-amber-700 text-xs px-2 py-0.5 rounded-full">
+                  {c.process}
+                </span>
+              )}
+              {c.roast_level && (
+                <span className="bg-orange-50 text-orange-700 text-xs px-2 py-0.5 rounded-full">
+                  {c.roast_level}
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-4 mt-3 text-xs text-stone-400">
+              {c.date_bought && <span>Bought {c.date_bought}</span>}
+              <span>{c.log_count} brew log{c.log_count !== 1 ? "s" : ""}</span>
+            </div>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }
