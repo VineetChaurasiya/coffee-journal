@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { sql } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 interface Coffee {
   id: number;
   name: string;
