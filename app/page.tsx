@@ -1,7 +1,5 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import Link from "next/link";
+import { sql } from "@/lib/db";
 
 interface Coffee {
   id: number;
@@ -27,44 +25,36 @@ function StarRating({ value }: { value: number }) {
   );
 }
 
-export default function Home() {
-  const [coffees, setCoffees] = useState<Coffee[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    fetch("/api/coffees")
-      .then(async (r) => {
-        if (!r.ok) {
-          const text = await r.text();
-          throw new Error(`${r.status}: ${text.slice(0, 200)}`);
-        }
-        return r.json();
-      })
-      .then((data) => {
-        setCoffees(Array.isArray(data) ? data : []);
-        setLoading(false);
-      })
-      .catch((e) => {
-        setError(e.message);
-        setLoading(false);
-      });
-  }, []);
-
-  if (loading) {
-    return <div className="text-stone-400 text-center py-16">Loading…</div>;
+async function getCoffees(): Promise<{ coffees?: Coffee[]; error?: string }> {
+  try {
+    const { rows } = await sql`
+      SELECT c.*,
+        (SELECT COUNT(*) FROM brew_logs WHERE coffee_id = c.id)::int AS log_count,
+        (SELECT AVG(rating) FROM brew_logs WHERE coffee_id = c.id AND rating IS NOT NULL) AS avg_rating
+      FROM coffees c ORDER BY c.created_at DESC
+    `;
+    return { coffees: rows as Coffee[] };
+  } catch (e) {
+    return { error: (e as Error).message };
   }
+}
+
+export default async function Home() {
+  const { coffees, error } = await getCoffees();
 
   if (error) {
     return (
       <div className="text-center py-16">
         <p className="text-red-500 font-medium mb-2">Failed to load coffees</p>
         <pre className="text-xs text-stone-400 bg-stone-100 rounded-lg p-4 text-left max-w-xl mx-auto whitespace-pre-wrap">{error}</pre>
+        <p className="text-stone-400 text-sm mt-4">
+          If you haven&apos;t yet, visit <code className="bg-stone-100 px-1 rounded">/api/setup</code> to create the database tables.
+        </p>
       </div>
     );
   }
 
-  if (coffees.length === 0) {
+  if (!coffees || coffees.length === 0) {
     return (
       <div className="text-center py-24">
         <p className="text-4xl mb-4">☕</p>
@@ -96,28 +86,20 @@ export default function Home() {
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <h2 className="font-semibold text-lg leading-tight truncate">{c.name}</h2>
-                {c.roaster && (
-                  <p className="text-stone-500 text-sm mt-0.5">{c.roaster}</p>
-                )}
+                {c.roaster && <p className="text-stone-500 text-sm mt-0.5">{c.roaster}</p>}
               </div>
               {c.avg_rating != null && <StarRating value={c.avg_rating} />}
             </div>
 
             <div className="flex flex-wrap gap-2 mt-3">
               {c.origin && (
-                <span className="bg-stone-100 text-stone-600 text-xs px-2 py-0.5 rounded-full">
-                  {c.origin}
-                </span>
+                <span className="bg-stone-100 text-stone-600 text-xs px-2 py-0.5 rounded-full">{c.origin}</span>
               )}
               {c.process && (
-                <span className="bg-amber-50 text-amber-700 text-xs px-2 py-0.5 rounded-full">
-                  {c.process}
-                </span>
+                <span className="bg-amber-50 text-amber-700 text-xs px-2 py-0.5 rounded-full">{c.process}</span>
               )}
               {c.roast_level && (
-                <span className="bg-orange-50 text-orange-700 text-xs px-2 py-0.5 rounded-full">
-                  {c.roast_level}
-                </span>
+                <span className="bg-orange-50 text-orange-700 text-xs px-2 py-0.5 rounded-full">{c.roast_level}</span>
               )}
             </div>
 
