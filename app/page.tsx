@@ -15,14 +15,15 @@ interface Coffee {
   avg_rating?: number;
 }
 
-function StarRating({ value }: { value: number }) {
-  const rounded = Math.round(value * 2) / 2;
+function StarRating({ value }: { value: number | string }) {
+  const num = parseFloat(String(value));
+  const rounded = Math.round(num * 2) / 2;
   return (
-    <span className="text-amber-400 text-sm" title={`${value.toFixed(1)}/10`}>
+    <span className="text-amber-400 text-sm" title={`${num.toFixed(1)}/10`}>
       {"★".repeat(Math.floor(rounded / 2))}
       {rounded % 2 ? "½" : ""}
       {"☆".repeat(5 - Math.ceil(rounded / 2))}
-      <span className="text-stone-400 ml-1 text-xs">{value.toFixed(1)}</span>
+      <span className="text-stone-400 ml-1 text-xs">{num.toFixed(1)}</span>
     </span>
   );
 }
