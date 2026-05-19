@@ -30,18 +30,38 @@ function StarRating({ value }: { value: number }) {
 export default function Home() {
   const [coffees, setCoffees] = useState<Coffee[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     fetch("/api/coffees")
-      .then((r) => r.json())
+      .then(async (r) => {
+        if (!r.ok) {
+          const text = await r.text();
+          throw new Error(`${r.status}: ${text.slice(0, 200)}`);
+        }
+        return r.json();
+      })
       .then((data) => {
-        setCoffees(data);
+        setCoffees(Array.isArray(data) ? data : []);
+        setLoading(false);
+      })
+      .catch((e) => {
+        setError(e.message);
         setLoading(false);
       });
   }, []);
 
   if (loading) {
     return <div className="text-stone-400 text-center py-16">Loading…</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-16">
+        <p className="text-red-500 font-medium mb-2">Failed to load coffees</p>
+        <pre className="text-xs text-stone-400 bg-stone-100 rounded-lg p-4 text-left max-w-xl mx-auto whitespace-pre-wrap">{error}</pre>
+      </div>
+    );
   }
 
   if (coffees.length === 0) {

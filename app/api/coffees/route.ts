@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sql, initDb } from "@/lib/db";
+import { sql } from "@/lib/db";
 
 export async function GET() {
-  await initDb();
   const { rows } = await sql`
     SELECT c.*,
       (SELECT COUNT(*) FROM brew_logs WHERE coffee_id = c.id)::int AS log_count,
@@ -13,7 +12,6 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  await initDb();
   const { name, url, roaster, origin, region, process, variety, roast_level, date_bought, notes } =
     await req.json();
 
