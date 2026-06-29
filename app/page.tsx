@@ -85,42 +85,43 @@ export default async function Home() {
           <Link
             key={c.id}
             href={`/coffees/${c.id}`}
-            className="bg-white border border-stone-200 rounded-xl p-5 hover:border-stone-400 hover:shadow-sm transition-all block"
+            className="bg-white border border-stone-200 rounded-xl p-5 hover:border-stone-400 hover:shadow-sm transition-all flex items-center gap-4"
           >
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-start gap-3 min-w-0">
-                {c.image_url && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={c.image_url}
-                    alt={c.name}
-                    className="w-14 h-14 object-cover rounded-lg border border-stone-200 shrink-0"
-                  />
-                )}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <h2 className="font-semibold text-lg leading-tight truncate">{c.name}</h2>
                   {c.roaster && <p className="text-stone-500 text-sm mt-0.5">{c.roaster}</p>}
                 </div>
+                {c.avg_rating != null && <StarRating value={c.avg_rating} />}
               </div>
-              {c.avg_rating != null && <StarRating value={c.avg_rating} />}
+
+              <div className="flex flex-wrap gap-2 mt-3">
+                {c.origin && (
+                  <span className="bg-stone-100 text-stone-600 text-xs px-2 py-0.5 rounded-full">{c.origin}</span>
+                )}
+                {c.process && (
+                  <span className="bg-amber-50 text-amber-700 text-xs px-2 py-0.5 rounded-full">{c.process}</span>
+                )}
+                {c.roast_level && (
+                  <span className="bg-orange-50 text-orange-700 text-xs px-2 py-0.5 rounded-full">{c.roast_level}</span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-4 mt-3 text-xs text-stone-400">
+                {c.date_bought && <span>Bought {c.date_bought}</span>}
+                <span>{c.log_count} brew log{c.log_count !== 1 ? "s" : ""}</span>
+              </div>
             </div>
 
-            <div className="flex flex-wrap gap-2 mt-3">
-              {c.origin && (
-                <span className="bg-stone-100 text-stone-600 text-xs px-2 py-0.5 rounded-full">{c.origin}</span>
-              )}
-              {c.process && (
-                <span className="bg-amber-50 text-amber-700 text-xs px-2 py-0.5 rounded-full">{c.process}</span>
-              )}
-              {c.roast_level && (
-                <span className="bg-orange-50 text-orange-700 text-xs px-2 py-0.5 rounded-full">{c.roast_level}</span>
-              )}
-            </div>
-
-            <div className="flex items-center gap-4 mt-3 text-xs text-stone-400">
-              {c.date_bought && <span>Bought {c.date_bought}</span>}
-              <span>{c.log_count} brew log{c.log_count !== 1 ? "s" : ""}</span>
-            </div>
+            {c.image_url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={c.image_url}
+                alt={c.name}
+                className="w-28 h-28 object-cover rounded-lg border border-stone-200 shrink-0"
+              />
+            )}
           </Link>
         ))}
       </div>

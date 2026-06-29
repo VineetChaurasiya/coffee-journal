@@ -104,12 +104,14 @@ export default function CoffeePage() {
       </div>
 
       {coffee.image_url && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={coffee.image_url}
-          alt={coffee.name}
-          className="w-full max-h-96 object-cover rounded-xl border border-stone-200"
-        />
+        <div className="w-full h-80 bg-stone-100 rounded-xl border border-stone-200 flex items-center justify-center overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={coffee.image_url}
+            alt={coffee.name}
+            className="max-w-full max-h-full object-contain"
+          />
+        </div>
       )}
 
       <div className="flex items-start justify-between gap-4">
