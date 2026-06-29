@@ -8,6 +8,7 @@ export interface ScrapedCoffee {
   process?: string;
   variety?: string;
   roast_level?: string;
+  image_url?: string;
 }
 
 function clean(s: string | undefined | null): string | undefined {
@@ -117,6 +118,27 @@ export async function scrapeCoffeePage(url: string): Promise<ScrapedCoffee> {
   }
   if (ogSiteName) roaster = clean(ogSiteName);
 
+  // --- Image from og:image, twitter:image, or first product-ish <img> ---
+  let imageUrl =
+    $('meta[property="og:image"]').attr("content") ||
+    $('meta[property="og:image:url"]').attr("content") ||
+    $('meta[name="twitter:image"]').attr("content");
+
+  if (!imageUrl) {
+    const candidate = $("img[class*='product'], img[class*='coffee'], .product img, .woocommerce-product-gallery img")
+      .first()
+      .attr("src");
+    imageUrl = candidate;
+  }
+
+  if (imageUrl) {
+    try {
+      imageUrl = new URL(imageUrl, url).toString();
+    } catch {
+      imageUrl = undefined;
+    }
+  }
+
   // Fallback name from h1 if meta didn't help
   if (!name) {
     $("nav, footer, script, style, header").remove();
@@ -163,6 +185,7 @@ export async function scrapeCoffeePage(url: string): Promise<ScrapedCoffee> {
     process: process || extractFromText(bodyText, PROCESS_LABELS),
     variety: variety || extractFromText(bodyText, VARIETY_LABELS),
     roast_level: roast_level || extractFromText(bodyText, ROAST_LABELS),
+    image_url: imageUrl,
   };
 
   return result;

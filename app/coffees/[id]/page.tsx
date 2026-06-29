@@ -33,6 +33,7 @@ interface Coffee {
   roast_level?: string;
   date_bought?: string;
   notes?: string;
+  image_url?: string;
   logs: BrewLog[];
 }
 
@@ -99,10 +100,20 @@ export default function CoffeePage() {
     <div className="max-w-2xl space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
-        <div>
-          <Link href="/" className="text-stone-400 text-sm hover:text-stone-600 mb-2 block">← All coffees</Link>
-          <h1 className="text-2xl font-bold">{coffee.name}</h1>
-          {coffee.roaster && <p className="text-stone-500 mt-0.5">{coffee.roaster}</p>}
+        <div className="flex items-start gap-4">
+          {coffee.image_url && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={coffee.image_url}
+              alt={coffee.name}
+              className="w-20 h-20 object-cover rounded-xl border border-stone-200 shrink-0"
+            />
+          )}
+          <div>
+            <Link href="/" className="text-stone-400 text-sm hover:text-stone-600 mb-2 block">← All coffees</Link>
+            <h1 className="text-2xl font-bold">{coffee.name}</h1>
+            {coffee.roaster && <p className="text-stone-500 mt-0.5">{coffee.roaster}</p>}
+          </div>
         </div>
         <button
           onClick={deleteCoffee}

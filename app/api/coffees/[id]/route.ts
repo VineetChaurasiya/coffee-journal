@@ -16,7 +16,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { name, url, roaster, origin, region, process, variety, roast_level, date_bought, notes } =
+  const { name, url, roaster, origin, region, process, variety, roast_level, date_bought, notes, image_url } =
     await req.json();
 
   const { rows } = await sql`
@@ -30,7 +30,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       variety     = COALESCE(${variety}, variety),
       roast_level = COALESCE(${roast_level}, roast_level),
       date_bought = COALESCE(${date_bought}, date_bought),
-      notes       = COALESCE(${notes}, notes)
+      notes       = COALESCE(${notes}, notes),
+      image_url   = COALESCE(${image_url}, image_url)
     WHERE id = ${id}
     RETURNING *
   `;

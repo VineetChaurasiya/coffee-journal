@@ -13,6 +13,7 @@ interface Coffee {
   date_bought?: string;
   log_count: number;
   avg_rating?: number;
+  image_url?: string;
 }
 
 function StarRating({ value }: { value: number | string }) {
@@ -87,9 +88,19 @@ export default async function Home() {
             className="bg-white border border-stone-200 rounded-xl p-5 hover:border-stone-400 hover:shadow-sm transition-all block"
           >
             <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <h2 className="font-semibold text-lg leading-tight truncate">{c.name}</h2>
-                {c.roaster && <p className="text-stone-500 text-sm mt-0.5">{c.roaster}</p>}
+              <div className="flex items-start gap-3 min-w-0">
+                {c.image_url && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={c.image_url}
+                    alt={c.name}
+                    className="w-14 h-14 object-cover rounded-lg border border-stone-200 shrink-0"
+                  />
+                )}
+                <div className="min-w-0">
+                  <h2 className="font-semibold text-lg leading-tight truncate">{c.name}</h2>
+                  {c.roaster && <p className="text-stone-500 text-sm mt-0.5">{c.roaster}</p>}
+                </div>
               </div>
               {c.avg_rating != null && <StarRating value={c.avg_rating} />}
             </div>

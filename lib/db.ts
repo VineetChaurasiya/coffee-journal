@@ -27,9 +27,11 @@ export async function initDb() {
         roast_level TEXT,
         date_bought TEXT,
         notes TEXT,
+        image_url TEXT,
         created_at TIMESTAMPTZ DEFAULT NOW()
       )
     `;
+    await client.sql`ALTER TABLE coffees ADD COLUMN IF NOT EXISTS image_url TEXT`;
     await client.sql`
       CREATE TABLE IF NOT EXISTS brew_logs (
         id SERIAL PRIMARY KEY,

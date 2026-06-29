@@ -14,11 +14,12 @@ interface CoffeeForm {
   roast_level: string;
   date_bought: string;
   notes: string;
+  image_url: string;
 }
 
 const EMPTY: CoffeeForm = {
   url: "", name: "", roaster: "", origin: "", region: "",
-  process: "", variety: "", roast_level: "", date_bought: "", notes: "",
+  process: "", variety: "", roast_level: "", date_bought: "", notes: "", image_url: "",
 };
 
 export default function NewCoffeePage() {
@@ -52,6 +53,7 @@ export default function NewCoffeePage() {
         process: data.process || f.process,
         variety: data.variety || f.variety,
         roast_level: data.roast_level || f.roast_level,
+        image_url: data.image_url || f.image_url,
       }));
     } catch (e) {
       setFetchError((e as Error).message);
@@ -104,6 +106,23 @@ export default function NewCoffeePage() {
           {fetchError && <p className="text-red-500 text-xs mt-2">{fetchError}</p>}
           {!fetchError && fetching && (
             <p className="text-stone-400 text-xs mt-2">Scraping page…</p>
+          )}
+          {form.image_url && (
+            <div className="mt-3 flex items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={form.image_url}
+                alt="Coffee"
+                className="w-20 h-20 object-cover rounded-lg border border-stone-200"
+              />
+              <button
+                type="button"
+                onClick={() => set("image_url", "")}
+                className="text-xs text-stone-400 hover:text-red-500"
+              >
+                Remove image
+              </button>
+            </div>
           )}
         </div>
 

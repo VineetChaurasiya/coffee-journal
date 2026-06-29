@@ -12,14 +12,14 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const { name, url, roaster, origin, region, process, variety, roast_level, date_bought, notes } =
+  const { name, url, roaster, origin, region, process, variety, roast_level, date_bought, notes, image_url } =
     await req.json();
 
   if (!name) return NextResponse.json({ error: "name required" }, { status: 400 });
 
   const { rows } = await sql`
-    INSERT INTO coffees (name, url, roaster, origin, region, process, variety, roast_level, date_bought, notes)
-    VALUES (${name}, ${url}, ${roaster}, ${origin}, ${region}, ${process}, ${variety}, ${roast_level}, ${date_bought}, ${notes})
+    INSERT INTO coffees (name, url, roaster, origin, region, process, variety, roast_level, date_bought, notes, image_url)
+    VALUES (${name}, ${url}, ${roaster}, ${origin}, ${region}, ${process}, ${variety}, ${roast_level}, ${date_bought}, ${notes}, ${image_url})
     RETURNING *
   `;
   return NextResponse.json(rows[0], { status: 201 });
