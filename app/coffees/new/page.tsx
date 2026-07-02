@@ -15,11 +15,14 @@ interface CoffeeForm {
   date_bought: string;
   notes: string;
   image_url: string;
+  price_paid: string;
+  quantity_g: string;
 }
 
 const EMPTY: CoffeeForm = {
   url: "", name: "", roaster: "", origin: "", region: "",
   process: "", variety: "", roast_level: "", date_bought: "", notes: "", image_url: "",
+  price_paid: "", quantity_g: "",
 };
 
 export default function NewCoffeePage() {
@@ -68,7 +71,11 @@ export default function NewCoffeePage() {
     const res = await fetch("/api/coffees", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify({
+        ...form,
+        price_paid: form.price_paid ? parseFloat(form.price_paid) : undefined,
+        quantity_g: form.quantity_g ? parseFloat(form.quantity_g) : undefined,
+      }),
     });
     if (res.ok) {
       const coffee = await res.json();
@@ -146,6 +153,15 @@ export default function NewCoffeePage() {
             </Field>
             <Field label="Date Bought">
               <input type="date" value={form.date_bought} onChange={(e) => set("date_bought", e.target.value)} className={inputCls} />
+            </Field>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Price Paid (₹)">
+              <input type="number" step="0.01" min="0" value={form.price_paid} onChange={(e) => set("price_paid", e.target.value)} placeholder="e.g. 850" className={inputCls} />
+            </Field>
+            <Field label="Quantity (g)">
+              <input type="number" step="1" min="0" value={form.quantity_g} onChange={(e) => set("quantity_g", e.target.value)} placeholder="e.g. 250" className={inputCls} />
             </Field>
           </div>
 

@@ -34,6 +34,8 @@ interface Coffee {
   date_bought?: string;
   notes?: string;
   image_url?: string;
+  price_paid?: number;
+  quantity_g?: number;
   logs: BrewLog[];
 }
 
@@ -136,6 +138,8 @@ export default function CoffeePage() {
           {coffee.variety && <MetaBadge label="Variety" value={coffee.variety} />}
           {coffee.roast_level && <MetaBadge label="Roast" value={coffee.roast_level} />}
           {coffee.date_bought && <MetaBadge label="Bought" value={coffee.date_bought} />}
+          {coffee.price_paid != null && <MetaBadge label="Price" value={`₹${coffee.price_paid.toFixed(2)}`} />}
+          {coffee.quantity_g != null && <MetaBadge label="Quantity" value={`${coffee.quantity_g}g`} />}
         </div>
         {coffee.logs.filter((l) => l.rating != null).length > 0 && (
           <div className="pt-2 border-t border-stone-100">
