@@ -8,6 +8,7 @@ export interface ScrapedCoffee {
   process?: string;
   variety?: string;
   roast_level?: string;
+  tasting_notes?: string;
   image_url?: string;
 }
 
@@ -16,82 +17,131 @@ function clean(s: string | undefined | null): string | undefined {
   return t || undefined;
 }
 
-// Walk all text in the body as one string, then regex-extract label→value pairs
+function isProse(val: string) {
+  return /^(this |the |a |an )/i.test(val) || val.length > 80;
+}
+
+// ── Strategy 1: JSON-LD schema.org Product ────────────────────────────────────
+function fromJsonLd($: cheerio.CheerioAPI, labels: string[]): string | undefined {
+  let found: string | undefined;
+  $('script[type="application/ld+json"]').each((_, el) => {
+    if (found) return;
+    try {
+      const data = JSON.parse($(el).text());
+      const products: unknown[] = Array.isArray(data) ? data : [data];
+      for (const item of products) {
+        if (!item || typeof item !== "object") continue;
+        const obj = item as Record<string, unknown>;
+        if (obj["@type"] !== "Product") continue;
+        // additionalProperty array
+        const props = obj["additionalProperty"];
+        if (Array.isArray(props)) {
+          for (const prop of props) {
+            if (!prop || typeof prop !== "object") continue;
+            const p = prop as Record<string, unknown>;
+            const pName = String(p.name ?? "").toLowerCase();
+            if (labels.some((l) => pName.includes(l.toLowerCase()))) {
+              const val = clean(String(p.value ?? ""));
+              if (val && !isProse(val)) { found = val; return false; }
+            }
+          }
+        }
+      }
+    } catch { /* ignore parse errors */ }
+  });
+  return found;
+}
+
+// ── Strategy 2: dt → dd ───────────────────────────────────────────────────────
+function findDtDd($: cheerio.CheerioAPI, labels: string[]): string | undefined {
+  for (const label of labels) {
+    const re = new RegExp(label, "i");
+    const dt = $("dt").filter((_, el) => re.test($(el).text()));
+    if (dt.length) {
+      const val = clean(dt.first().next("dd").text());
+      if (val && !isProse(val)) return val;
+    }
+  }
+}
+
+// ── Strategy 3: table rows (th/td or td/td) ──────────────────────────────────
+function findTableRow($: cheerio.CheerioAPI, labels: string[]): string | undefined {
+  for (const label of labels) {
+    const re = new RegExp(label, "i");
+    let found: string | undefined;
+    $("tr").each((_, tr) => {
+      const cells = $(tr).find("th, td");
+      if (cells.length >= 2 && re.test(cells.first().text())) {
+        const val = clean(cells.eq(1).text());
+        if (val && !isProse(val)) { found = val; return false; }
+      }
+    });
+    if (found) return found;
+  }
+}
+
+// ── Strategy 4: [data-label] and [aria-label] attributes ─────────────────────
+function findDataLabel($: cheerio.CheerioAPI, labels: string[]): string | undefined {
+  for (const label of labels) {
+    const re = new RegExp(label, "i");
+    let found: string | undefined;
+    $("[data-label], [aria-label]").each((_, el) => {
+      const attr = $(el).attr("data-label") ?? $(el).attr("aria-label") ?? "";
+      if (re.test(attr)) {
+        const val = clean($(el).text());
+        if (val && !isProse(val)) { found = val; return false; }
+      }
+    });
+    if (found) return found;
+  }
+}
+
+// ── Strategy 5: adjacent sibling elements ────────────────────────────────────
+function findAdjacent($: cheerio.CheerioAPI, labels: string[]): string | undefined {
+  for (const label of labels) {
+    const re = new RegExp(`^\\s*${label}\\s*:?\\s*$`, "i");
+    let found: string | undefined;
+    $("td, li, div, span, p, h4, h5, strong, b").each((_, el) => {
+      if (re.test($(el).text().trim())) {
+        // Try next sibling first, then parent's next sibling
+        let val = clean($(el).next().text());
+        if (!val || isProse(val)) val = clean($(el).parent().next().text());
+        if (val && !isProse(val)) { found = val; return false; }
+      }
+    });
+    if (found) return found;
+  }
+}
+
+// ── Strategy 6: label: value on same line in body text ───────────────────────
 function extractFromText(text: string, labels: string[]): string | undefined {
   for (const label of labels) {
-    const re = new RegExp(
-      `(?:^|\\n)\\s*${label}\\s*[:\\n]\\s*([^\\n]{2,60})`,
-      "im"
-    );
+    const re = new RegExp(`(?:^|\\n)\\s*${label}\\s*[:\\n]\\s*([^\\n]{2,60})`, "im");
     const m = text.match(re);
     if (m) {
       const val = m[1].trim().replace(/^[:–-]\s*/, "");
-      // Skip sentence-like values (start with "This", "The", "A ", "An " or are clearly prose)
-      if (!val || /^(this |the |a |an )/i.test(val)) continue;
-      if (val.length < 60 && !val.toLowerCase().startsWith(label.toLowerCase())) {
+      if (val && !isProse(val) && !val.toLowerCase().startsWith(label.toLowerCase())) {
         return val;
       }
     }
   }
-  return undefined;
 }
 
-// Find label→value from adjacent same-level elements (e.g. each in own <tr><td>)
-function findAdjacentLabel($: cheerio.CheerioAPI, labels: string[]): string | undefined {
-  for (const label of labels) {
-    const re = new RegExp(`^\\s*${label}\\s*$`, "i");
-    let found: string | undefined;
-    // Check adjacent tds/divs/spans that each occupy a row
-    $("td, li, div, span, p").each((_, el) => {
-      if (re.test($(el).text().trim())) {
-        const next = $(el).next();
-        const val = clean(next.text());
-        if (val && val.length < 80 && !/^(this |the |a |an )/i.test(val)) {
-          found = val;
-          return false;
-        }
-      }
-    });
-    if (found) return found;
-  }
-  return undefined;
-}
-
-// Try cheerio dt/th label patterns
-function findByLabel($: cheerio.CheerioAPI, labels: string[]): string | undefined {
-  for (const label of labels) {
-    const re = new RegExp(label, "i");
-
-    // dt → dd
-    const dt = $("dt").filter((_, el) => re.test($(el).text()));
-    if (dt.length) {
-      const val = clean(dt.first().next("dd").text());
-      if (val) return val;
-    }
-
-    // th → td in same row
-    let found: string | undefined;
-    $("tr").each((_, tr) => {
-      const th = $(tr).find("th, td:first-child").first();
-      if (re.test(th.text())) {
-        const td = $(tr).find("td").last();
-        const val = clean(td.text());
-        if (val && val !== clean(th.text())) {
-          found = val;
-          return false;
-        }
-      }
-    });
-    if (found) return found;
-  }
-  return undefined;
+function findField($: cheerio.CheerioAPI, bodyText: string, labels: string[]): string | undefined {
+  return (
+    fromJsonLd($, labels) ||
+    findDtDd($, labels) ||
+    findTableRow($, labels) ||
+    findDataLabel($, labels) ||
+    findAdjacent($, labels) ||
+    extractFromText(bodyText, labels)
+  );
 }
 
 export async function scrapeCoffeePage(url: string): Promise<ScrapedCoffee> {
   const res = await fetch(url, {
     headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
       Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     },
   });
@@ -100,7 +150,7 @@ export async function scrapeCoffeePage(url: string): Promise<ScrapedCoffee> {
   const html = await res.text();
   const $ = cheerio.load(html);
 
-  // --- Name & Roaster from meta tags (most reliable) ---
+  // ── Name & Roaster ─────────────────────────────────────────────────────────
   const ogTitle = $('meta[property="og:title"]').attr("content") ||
     $('meta[name="og:title"]').attr("content");
   const ogSiteName = $('meta[property="og:site_name"]').attr("content");
@@ -109,84 +159,50 @@ export async function scrapeCoffeePage(url: string): Promise<ScrapedCoffee> {
   let roaster: string | undefined;
 
   if (ogTitle) {
-    // "Product Name - Site Name" or "Product Name | Site Name"
     const parts = ogTitle.split(/\s*[-|–]\s*/);
     name = clean(parts[0]);
-    if (parts.length > 1 && !ogSiteName) {
-      roaster = clean(parts[parts.length - 1]);
-    }
+    if (parts.length > 1 && !ogSiteName) roaster = clean(parts[parts.length - 1]);
   }
   if (ogSiteName) roaster = clean(ogSiteName);
 
-  // --- Image from og:image, twitter:image, or first product-ish <img> ---
+  // ── Image ──────────────────────────────────────────────────────────────────
   let imageUrl =
     $('meta[property="og:image"]').attr("content") ||
     $('meta[property="og:image:url"]').attr("content") ||
     $('meta[name="twitter:image"]').attr("content");
 
   if (!imageUrl) {
-    const candidate = $("img[class*='product'], img[class*='coffee'], .product img, .woocommerce-product-gallery img")
-      .first()
-      .attr("src");
-    imageUrl = candidate;
+    imageUrl = $("img[class*='product'], img[class*='coffee'], .product img, .woocommerce-product-gallery img")
+      .first().attr("src");
   }
-
   if (imageUrl) {
-    try {
-      imageUrl = new URL(imageUrl, url).toString();
-    } catch {
-      imageUrl = undefined;
-    }
+    try { imageUrl = new URL(imageUrl, url).toString(); }
+    catch { imageUrl = undefined; }
   }
 
-  // Fallback name from h1 if meta didn't help
-  if (!name) {
-    $("nav, footer, script, style, header").remove();
-    name = clean($("h1").first().text());
-  } else {
-    $("nav, footer, script, style, header").remove();
-  }
+  // Strip nav/footer/header for name fallback and body text
+  $("nav, footer, script, style, header").remove();
+  if (!name) name = clean($("h1").first().text());
 
-  // --- Extract structured fields ---
-  const PROCESS_LABELS = ["process", "post.harvest process", "processing method", "processing"];
-  const ORIGIN_LABELS  = ["origin", "country", "farm", "estate", "growing region"];
-  const REGION_LABELS  = ["region", "area", "district", "zone"];
-  const VARIETY_LABELS = ["variety", "varietal", "cultivar"];
-  const ROAST_LABELS   = ["roast level", "roast profile", "roast"];
-
-  const process =
-    findByLabel($, PROCESS_LABELS) ||
-    findAdjacentLabel($, PROCESS_LABELS);
-
-  const origin =
-    findByLabel($, ORIGIN_LABELS) ||
-    findAdjacentLabel($, ORIGIN_LABELS);
-
-  const region =
-    findByLabel($, REGION_LABELS) ||
-    findAdjacentLabel($, REGION_LABELS);
-
-  const variety =
-    findByLabel($, VARIETY_LABELS) ||
-    findAdjacentLabel($, VARIETY_LABELS);
-
-  const roast_level =
-    findByLabel($, ROAST_LABELS) ||
-    findAdjacentLabel($, ROAST_LABELS);
-
-  // --- Text-block fallback: grab all visible body text and regex-scan ---
   const bodyText = $("body").text().replace(/\t/g, " ");
 
-  const result: ScrapedCoffee = {
+  // ── Structured fields ──────────────────────────────────────────────────────
+  const PROCESS_LABELS = ["process", "post.harvest process", "processing method", "processing"];
+  const ORIGIN_LABELS  = ["origin", "country", "farm", "estate", "growing region", "producer"];
+  const REGION_LABELS  = ["region", "area", "district", "zone"];
+  const VARIETY_LABELS = ["variety", "varietal", "cultivar", "species"];
+  const ROAST_LABELS   = ["roast level", "roast profile", "roast"];
+  const TASTING_LABELS = ["tasting notes", "flavour notes", "flavor notes", "cup profile", "cupping notes", "notes"];
+
+  return {
     name,
     roaster,
-    origin: origin || extractFromText(bodyText, ORIGIN_LABELS),
-    region: region || extractFromText(bodyText, REGION_LABELS),
-    process: process || extractFromText(bodyText, PROCESS_LABELS),
-    variety: variety || extractFromText(bodyText, VARIETY_LABELS),
-    roast_level: roast_level || extractFromText(bodyText, ROAST_LABELS),
-    image_url: imageUrl,
+    origin:        findField($, bodyText, ORIGIN_LABELS),
+    region:        findField($, bodyText, REGION_LABELS),
+    process:       findField($, bodyText, PROCESS_LABELS),
+    variety:       findField($, bodyText, VARIETY_LABELS),
+    roast_level:   findField($, bodyText, ROAST_LABELS),
+    tasting_notes: findField($, bodyText, TASTING_LABELS),
+    image_url:     imageUrl,
   };
-
-  return result;
 }

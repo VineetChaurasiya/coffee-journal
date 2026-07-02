@@ -51,13 +51,15 @@ export default function NewCoffeePage() {
       if (!res.ok) throw new Error(data.error || "Failed to fetch");
       setForm((f) => ({
         ...f,
-        name: data.name || f.name,
-        roaster: data.roaster || f.roaster,
-        origin: data.origin || f.origin,
-        process: data.process || f.process,
-        variety: data.variety || f.variety,
-        roast_level: data.roast_level || f.roast_level,
-        image_url: data.image_url || f.image_url,
+        name:          data.name          || f.name,
+        roaster:       data.roaster       || f.roaster,
+        origin:        data.origin        || f.origin,
+        region:        data.region        || f.region,
+        process:       data.process       || f.process,
+        variety:       data.variety       || f.variety,
+        roast_level:   data.roast_level   || f.roast_level,
+        tasting_notes: data.tasting_notes || f.tasting_notes,
+        image_url:     data.image_url     || f.image_url,
       }));
     } catch (e) {
       setFetchError((e as Error).message);
