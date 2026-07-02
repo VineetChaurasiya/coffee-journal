@@ -36,6 +36,7 @@ interface Coffee {
   image_url?: string;
   price_paid?: number;
   quantity_g?: number;
+  tasting_notes?: string;
   logs: BrewLog[];
 }
 
@@ -145,6 +146,12 @@ export default function CoffeePage() {
           <div className="pt-2 border-t border-stone-100">
             <StarRating value={Math.round(avgRating)} />
             <span className="text-stone-400 text-xs ml-2">avg of {coffee.logs.filter((l) => l.rating != null).length} logs</span>
+          </div>
+        )}
+        {coffee.tasting_notes && (
+          <div className="border-t border-stone-100 pt-3">
+            <span className="text-stone-400 text-sm">Tasting notes: </span>
+            <span className="text-sm font-medium">{coffee.tasting_notes}</span>
           </div>
         )}
         {coffee.notes && <p className="text-stone-500 text-sm border-t border-stone-100 pt-3">{coffee.notes}</p>}

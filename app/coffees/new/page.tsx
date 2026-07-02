@@ -17,12 +17,13 @@ interface CoffeeForm {
   image_url: string;
   price_paid: string;
   quantity_g: string;
+  tasting_notes: string;
 }
 
 const EMPTY: CoffeeForm = {
   url: "", name: "", roaster: "", origin: "", region: "",
   process: "", variety: "", roast_level: "", date_bought: "", notes: "", image_url: "",
-  price_paid: "", quantity_g: "",
+  price_paid: "", quantity_g: "", tasting_notes: "",
 };
 
 export default function NewCoffeePage() {
@@ -185,6 +186,16 @@ export default function NewCoffeePage() {
               <input type="text" value={form.roast_level} onChange={(e) => set("roast_level", e.target.value)} placeholder="Light, Medium…" className={inputCls} />
             </Field>
           </div>
+
+          <Field label="Tasting Notes">
+            <input
+              type="text"
+              value={form.tasting_notes}
+              onChange={(e) => set("tasting_notes", e.target.value)}
+              placeholder="Chocolate, citrus, floral…"
+              className={inputCls}
+            />
+          </Field>
 
           <Field label="Notes">
             <textarea

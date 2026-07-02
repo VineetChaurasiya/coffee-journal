@@ -30,12 +30,14 @@ export async function initDb() {
         image_url TEXT,
         price_paid REAL,
         quantity_g REAL,
+        tasting_notes TEXT,
         created_at TIMESTAMPTZ DEFAULT NOW()
       )
     `;
     await client.sql`ALTER TABLE coffees ADD COLUMN IF NOT EXISTS image_url TEXT`;
     await client.sql`ALTER TABLE coffees ADD COLUMN IF NOT EXISTS price_paid REAL`;
     await client.sql`ALTER TABLE coffees ADD COLUMN IF NOT EXISTS quantity_g REAL`;
+    await client.sql`ALTER TABLE coffees ADD COLUMN IF NOT EXISTS tasting_notes TEXT`;
     await client.sql`
       CREATE TABLE IF NOT EXISTS brew_logs (
         id SERIAL PRIMARY KEY,
