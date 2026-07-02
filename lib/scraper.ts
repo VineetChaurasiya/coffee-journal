@@ -18,10 +18,10 @@ function clean(s: string | undefined | null): string | undefined {
 }
 
 function isProse(val: string) {
-  return /^(this |the |a |an )/i.test(val) || val.length > 80;
+  return /^(this |the |a |an |discover |learn |get |find |we |our |shop |browse |all |you )/i.test(val) || val.length > 80;
 }
 
-// ── Strategy 1: JSON-LD schema.org Product ────────────────────────────────────
+// ── Strategy 1: JSON-LD schema.org Product additionalProperty ─────────────────
 function fromJsonLd($: cheerio.CheerioAPI, labels: string[]): string | undefined {
   let found: string | undefined;
   $('script[type="application/ld+json"]').each((_, el) => {
@@ -33,7 +33,6 @@ function fromJsonLd($: cheerio.CheerioAPI, labels: string[]): string | undefined
         if (!item || typeof item !== "object") continue;
         const obj = item as Record<string, unknown>;
         if (obj["@type"] !== "Product") continue;
-        // additionalProperty array
         const props = obj["additionalProperty"];
         if (Array.isArray(props)) {
           for (const prop of props) {
@@ -47,12 +46,31 @@ function fromJsonLd($: cheerio.CheerioAPI, labels: string[]): string | undefined
           }
         }
       }
-    } catch { /* ignore parse errors */ }
+    } catch { /* ignore */ }
   });
   return found;
 }
 
-// ── Strategy 2: dt → dd ───────────────────────────────────────────────────────
+// ── Strategy 2: <li> with first-child label + second-child value ──────────────
+// Matches this Shopify theme: <li><div>Label:</div><div>Value</div></li>
+function findListItem($: cheerio.CheerioAPI, labels: string[]): string | undefined {
+  for (const label of labels) {
+    const re = new RegExp(label, "i");
+    let found: string | undefined;
+    $("li").each((_, li) => {
+      const children = $(li).children();
+      if (children.length >= 2) {
+        if (re.test(children.first().text())) {
+          const val = clean(children.eq(1).text());
+          if (val && !isProse(val)) { found = val; return false; }
+        }
+      }
+    });
+    if (found) return found;
+  }
+}
+
+// ── Strategy 3: dt → dd ───────────────────────────────────────────────────────
 function findDtDd($: cheerio.CheerioAPI, labels: string[]): string | undefined {
   for (const label of labels) {
     const re = new RegExp(label, "i");
@@ -64,7 +82,7 @@ function findDtDd($: cheerio.CheerioAPI, labels: string[]): string | undefined {
   }
 }
 
-// ── Strategy 3: table rows (th/td or td/td) ──────────────────────────────────
+// ── Strategy 4: table rows (th/td or td/td) ──────────────────────────────────
 function findTableRow($: cheerio.CheerioAPI, labels: string[]): string | undefined {
   for (const label of labels) {
     const re = new RegExp(label, "i");
@@ -80,7 +98,7 @@ function findTableRow($: cheerio.CheerioAPI, labels: string[]): string | undefin
   }
 }
 
-// ── Strategy 4: [data-label] and [aria-label] attributes ─────────────────────
+// ── Strategy 5: [data-label] / [aria-label] attributes ───────────────────────
 function findDataLabel($: cheerio.CheerioAPI, labels: string[]): string | undefined {
   for (const label of labels) {
     const re = new RegExp(label, "i");
@@ -96,16 +114,16 @@ function findDataLabel($: cheerio.CheerioAPI, labels: string[]): string | undefi
   }
 }
 
-// ── Strategy 5: adjacent sibling elements ────────────────────────────────────
+// ── Strategy 6: adjacent sibling elements (exact label text) ─────────────────
+// NOTE: no parent().next() fallback — that was causing false positives from
+// related-product carousels where the label is a child of the value element.
 function findAdjacent($: cheerio.CheerioAPI, labels: string[]): string | undefined {
   for (const label of labels) {
     const re = new RegExp(`^\\s*${label}\\s*:?\\s*$`, "i");
     let found: string | undefined;
     $("td, li, div, span, p, h4, h5, strong, b").each((_, el) => {
       if (re.test($(el).text().trim())) {
-        // Try next sibling first, then parent's next sibling
-        let val = clean($(el).next().text());
-        if (!val || isProse(val)) val = clean($(el).parent().next().text());
+        const val = clean($(el).next().text());
         if (val && !isProse(val)) { found = val; return false; }
       }
     });
@@ -113,10 +131,11 @@ function findAdjacent($: cheerio.CheerioAPI, labels: string[]): string | undefin
   }
 }
 
-// ── Strategy 6: label: value on same line in body text ───────────────────────
+// ── Strategy 7: body text regex (last resort) ─────────────────────────────────
+// Matches "COFFEE ROAST LEVEL:\nLight" — allows arbitrary prefix before label
 function extractFromText(text: string, labels: string[]): string | undefined {
   for (const label of labels) {
-    const re = new RegExp(`(?:^|\\n)\\s*${label}\\s*[:\\n]\\s*([^\\n]{2,60})`, "im");
+    const re = new RegExp(`[^\\n]*${label}[^\\n]*[:\\n]\\s*([^\\n]{2,40})`, "im");
     const m = text.match(re);
     if (m) {
       const val = m[1].trim().replace(/^[:–-]\s*/, "");
@@ -130,6 +149,7 @@ function extractFromText(text: string, labels: string[]): string | undefined {
 function findField($: cheerio.CheerioAPI, bodyText: string, labels: string[]): string | undefined {
   return (
     fromJsonLd($, labels) ||
+    findListItem($, labels) ||
     findDtDd($, labels) ||
     findTableRow($, labels) ||
     findDataLabel($, labels) ||
@@ -180,19 +200,26 @@ export async function scrapeCoffeePage(url: string): Promise<ScrapedCoffee> {
     catch { imageUrl = undefined; }
   }
 
-  // Strip nav/footer/header for name fallback and body text
-  $("nav, footer, script, style, header").remove();
+  // ── Strip noise before extraction ──────────────────────────────────────────
+  // Remove nav/footer/header and related-product carousels to avoid false positives
+  $("nav, footer, header, script, style").remove();
+  $("section, div").filter((_, el) => {
+    const heading = $(el).find("h2, h3").first().text().toUpperCase();
+    return /YOU MIGHT|RELATED|RECOMMEND|SIMILAR|ALSO LIKE|MORE PRODUCT/.test(heading);
+  }).remove();
+
   if (!name) name = clean($("h1").first().text());
 
   const bodyText = $("body").text().replace(/\t/g, " ");
 
-  // ── Structured fields ──────────────────────────────────────────────────────
-  const PROCESS_LABELS = ["process", "post.harvest process", "processing method", "processing"];
-  const ORIGIN_LABELS  = ["origin", "country", "farm", "estate", "growing region", "producer"];
-  const REGION_LABELS  = ["region", "area", "district", "zone"];
-  const VARIETY_LABELS = ["variety", "varietal", "cultivar", "species"];
-  const ROAST_LABELS   = ["roast level", "roast profile", "roast"];
-  const TASTING_LABELS = ["tasting notes", "flavour notes", "flavor notes", "cup profile", "cupping notes", "notes"];
+  // ── Label definitions ──────────────────────────────────────────────────────
+  // Include both short forms (dt/dd, table) and full site-specific labels
+  const PROCESS_LABELS  = ["process", "post.harvest process", "processing method", "processing"];
+  const ORIGIN_LABELS   = ["farming/sourcing", "farming", "sourcing", "origin", "country", "farm", "estate", "growing region", "producer"];
+  const REGION_LABELS   = ["region", "area", "district", "zone"];
+  const VARIETY_LABELS  = ["variety", "varietal", "cultivar", "species"];
+  const ROAST_LABELS    = ["coffee roast level", "coffee roast", "roast level", "roast profile", "roast"];
+  const TASTING_LABELS  = ["taste preference", "tasting notes", "flavour notes", "flavor notes", "cup profile", "cupping notes", "taste notes"];
 
   return {
     name,
