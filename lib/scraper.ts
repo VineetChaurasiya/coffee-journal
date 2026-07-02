@@ -215,8 +215,8 @@ export async function scrapeCoffeePage(url: string): Promise<ScrapedCoffee> {
   // ── Label definitions ──────────────────────────────────────────────────────
   // Include both short forms (dt/dd, table) and full site-specific labels
   const PROCESS_LABELS  = ["process", "post.harvest process", "processing method", "processing"];
-  const ORIGIN_LABELS   = ["farming/sourcing", "farming", "sourcing", "origin", "country", "farm", "estate", "growing region", "producer"];
-  const REGION_LABELS   = ["region", "area", "district", "zone"];
+  const ORIGIN_LABELS   = ["origin", "country", "producer country", "country of origin"];
+  const REGION_LABELS   = ["farming/sourcing", "farming", "sourcing", "region", "area", "district", "zone", "farm", "estate", "growing region", "producer"];
   const VARIETY_LABELS  = ["variety", "varietal", "cultivar", "species"];
   const ROAST_LABELS    = ["coffee roast level", "coffee roast", "roast level", "roast profile", "roast"];
   const TASTING_LABELS  = ["taste preference", "tasting notes", "flavour notes", "flavor notes", "cup profile", "cupping notes", "taste notes"];
